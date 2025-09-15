@@ -101,12 +101,14 @@ def print_saved_space(saved, title=None):
             span.set_data("title", title)
         span.set_data("saved_kb", saved)
 
+        print()
         print_separation_line("*", 80)
         if title:
             print(f"=> {title}: Saved {format_byte_count(saved)}")
         else:
             print(f"=> Saved {format_byte_count(saved)}")
         print_separation_line("*", 80)
+        print()
 
 def print_dh(caption=None):
     """Print disk usage with caption"""
@@ -117,14 +119,18 @@ def print_dh(caption=None):
         print_separation_line("=", 80)
         if caption:
             print(caption)
+            print()
 
         print("$ df -h /")
+        print()
         subprocess.run(["df", "-h", "/"], check=False)
 
         print("$ df -a /")
+        print()
         subprocess.run(["df", "-a", "/"], check=False)
 
         print("$ df -a")
+        print()
         subprocess.run(["df", "-a"], check=False)
 
         print_separation_line("=", 80)
@@ -161,6 +167,7 @@ def main():
             span.set_data("initial_root_kb", available_root_initial)
 
             print_dh("BEFORE CLEAN-UP:")
+            print()
 
         # Option: Remove Android library
         if ANDROID:
@@ -281,7 +288,10 @@ def main():
             span.set_data("total_saved_kb", total_saved)
             span.set_data("total_saved_formatted", format_byte_count(total_saved))
 
+            print()
             print_dh("AFTER CLEAN-UP:")
+            print()
+            print()
 
             print("/dev/root:")
             print_saved_space(root_saved)
