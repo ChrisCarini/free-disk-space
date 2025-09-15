@@ -226,10 +226,17 @@ def main():
                 for i, cmd in enumerate(apt_commands):
                     full_command = ' '.join(cmd)
                     with sentry_sdk.start_span(description=f"Large Package: {full_command.removeprefix('sudo apt-get ')}", op="cleanup.packages.cmd") as cmd_span:
+                        cmd_before = get_available_space()
+
                         cmd_span.set_data("command", full_command)
                         error_msg = f"The command [{full_command}] failed to complete successfully. Proceeding..."
                         success = run_command(cmd, error_msg)
                         cmd_span.set_data("success", success)
+
+                        cmd_after = get_available_space()
+                        cmd_saved = cmd_after - cmd_before
+                        cmd_span.set_data("saved_kb", cmd_saved)
+                        cmd_span.set_data("saved_formatted", format_byte_count(cmd_saved))
 
                 after = get_available_space()
                 saved = after - before
