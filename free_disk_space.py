@@ -2,25 +2,42 @@
 import os
 import subprocess
 import re
+import sys
 import sentry_sdk
 from sentry_sdk import capture_exception, set_tag, start_transaction
 
-# Print all input parameters at the start
-print("==== CONFIGURED OPTIONS ====")
-inputs = {
-    "android": os.environ.get("INPUT_ANDROID", "true").lower(),
-    "dotnet": os.environ.get("INPUT_DOTNET", "true").lower(),
-    "haskell": os.environ.get("INPUT_HASKELL", "true").lower(),
-    "large-packages": os.environ.get("INPUT_LARGE_PACKAGES", "true").lower(),
-    "docker-images": os.environ.get("INPUT_DOCKER_IMAGES", "true").lower(),
-    "tool-cache": os.environ.get("INPUT_TOOL_CACHE", "false").lower(),
-    "swap-storage": os.environ.get("INPUT_SWAP_STORAGE", "true").lower(),
-}
+# Force immediate flushing of all print statements
+print = lambda *args, **kwargs: __builtins__.print(*args, **kwargs, flush=True)
 
-for key, value in inputs.items():
-    print(f"  {key}: {value}")
-print("===========================")
-print()
+ANDROID = os.environ.get("INPUT_ANDROID", "true").lower() == "true"
+DOCKER_IMAGES = os.environ.get("INPUT_DOCKER_IMAGES", "true").lower() == "true"
+DOTNET = os.environ.get("INPUT_DOTNET", "true").lower() == "true"
+HASKELL = os.environ.get("INPUT_HASKELL", "true").lower() == "true"
+LARGE_PACKAGES = os.environ.get("INPUT_LARGE_PACKAGES", "true").lower() == "true"
+SWAP_STORAGE = os.environ.get("INPUT_SWAP_STORAGE", "true").lower() == "true"
+TOOL_CACHE = os.environ.get("INPUT_TOOL_CACHE", "false").lower() == "true"
+
+
+def print_inputs():
+    # Print all input parameters at the start
+    print("==== CONFIGURED OPTIONS ====")
+    inputs = {
+        "android": ANDROID,
+        "dotnet": DOTNET,
+        "haskell": HASKELL,
+        "large-packages": LARGE_PACKAGES,
+        "docker-images": DOCKER_IMAGES,
+        "tool-cache": TOOL_CACHE,
+        "swap-storage": SWAP_STORAGE,
+    }
+
+    for key, value in inputs.items():
+        print(f"  {key}: {value}")
+    print("===========================")
+    print()
+
+
+print_inputs()
 
 # Initialize Sentry SDK
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
@@ -120,9 +137,10 @@ def print_dh(caption=None):
 
 def run_command(cmd, error_msg=None):
     """Run a shell command and handle errors gracefully"""
+    full_command = ' '.join(cmd)
     try:
-        with sentry_sdk.start_span(description=f"Command: {' '.join(cmd)}", op="command") as span:
-            span.set_data("command", ' '.join(cmd))
+        with sentry_sdk.start_span(description=f"Command: {full_command}", op="command") as span:
+            span.set_data("command", full_command)
             result = subprocess.run(cmd, check=True)
             span.set_data("status", "success")
             return True
@@ -131,16 +149,12 @@ def run_command(cmd, error_msg=None):
             print(f"::warning::{error_msg}")
         if SENTRY_DSN:
             with sentry_sdk.push_scope() as scope:
-                scope.set_extra("command", ' '.join(cmd))
+                scope.set_extra("command", full_command)
                 scope.set_extra("returncode", e.returncode)
                 scope.set_extra("stderr", e.stderr if hasattr(e, 'stderr') else None)
                 capture_exception(e)
         return False
 
-def get_input(name, default="false"):
-    """Get input parameter from environment variable"""
-    var_name = f"INPUT_{name.replace('-', '_').upper()}"
-    return os.environ.get(var_name, default).lower() == "true"
 
 def main():
     # Start a transaction to monitor the entire cleanup process
@@ -156,7 +170,7 @@ def main():
             print()
 
         # Option: Remove Android library
-        if get_input("android", "true"):
+        if ANDROID:
             with sentry_sdk.start_span(description="Remove Android library", op="cleanup.android") as span:
                 before = get_available_space()
                 run_command(["sudo", "rm", "-rf", "/usr/local/lib/android"])
@@ -167,7 +181,7 @@ def main():
                 print_saved_space(saved, "Android library")
 
         # Option: Remove .NET runtime
-        if get_input("dotnet", "true"):
+        if DOTNET:
             with sentry_sdk.start_span(description="Remove .NET runtime", op="cleanup.dotnet") as span:
                 before = get_available_space()
                 run_command(["sudo", "rm", "-rf", "/usr/share/dotnet"])
@@ -178,7 +192,7 @@ def main():
                 print_saved_space(saved, ".NET runtime")
 
         # Option: Remove Haskell runtime
-        if get_input("haskell", "true"):
+        if HASKELL:
             with sentry_sdk.start_span(description="Remove Haskell runtime", op="cleanup.haskell") as span:
                 before = get_available_space()
                 run_command(["sudo", "rm", "-rf", "/opt/ghc"])
@@ -190,7 +204,7 @@ def main():
                 print_saved_space(saved, "Haskell runtime")
 
         # Option: Remove large packages
-        if get_input("large-packages", "true"):
+        if LARGE_PACKAGES:
             with sentry_sdk.start_span(description="Remove large packages", op="cleanup.packages") as span:
                 before = get_available_space()
 
@@ -210,9 +224,10 @@ def main():
                 ]
 
                 for i, cmd in enumerate(apt_commands):
-                    with sentry_sdk.start_span(description=f"Package removal {i+1}/{len(apt_commands)}", op="cleanup.packages.cmd") as cmd_span:
-                        cmd_span.set_data("command", ' '.join(cmd))
-                        error_msg = f"The command [{' '.join(cmd)}] failed to complete successfully. Proceeding..."
+                    full_command = ' '.join(cmd)
+                    with sentry_sdk.start_span(description=f"Large Package: {full_command.removeprefix('sudo apt-get ')}", op="cleanup.packages.cmd") as cmd_span:
+                        cmd_span.set_data("command", full_command)
+                        error_msg = f"The command [{full_command}] failed to complete successfully. Proceeding..."
                         success = run_command(cmd, error_msg)
                         cmd_span.set_data("success", success)
 
@@ -223,7 +238,7 @@ def main():
                 print_saved_space(saved, "Large misc. packages")
 
         # Option: Remove Docker images
-        if get_input("docker-images", "true"):
+        if DOCKER_IMAGES:
             with sentry_sdk.start_span(description="Remove Docker images", op="cleanup.docker") as span:
                 before = get_available_space()
                 run_command(["sudo", "docker", "image", "prune", "--all", "--force"])
@@ -234,7 +249,7 @@ def main():
                 print_saved_space(saved, "Docker images")
 
         # Option: Remove tool cache
-        if get_input("tool-cache", "false"):
+        if TOOL_CACHE:
             with sentry_sdk.start_span(description="Remove tool cache", op="cleanup.toolcache") as span:
                 before = get_available_space()
                 agent_tools_dir = os.environ.get("AGENT_TOOLSDIRECTORY", "")
@@ -248,7 +263,7 @@ def main():
                 print_saved_space(saved, "Tool cache")
 
         # Option: Remove Swap storage
-        if get_input("swap-storage", "true"):
+        if SWAP_STORAGE:
             with sentry_sdk.start_span(description="Remove swap storage", op="cleanup.swap") as span:
                 before = get_available_space()
                 run_command(["sudo", "swapoff", "-a"])
@@ -282,6 +297,8 @@ def main():
             print_saved_space(root_saved)
             print("overall:")
             print_saved_space(total_saved)
+
+            print_inputs()
 
         # Set the status and metrics on the transaction
         transaction.set_tag("cleanup.success", "true")
