@@ -5,6 +5,23 @@ import re
 import sentry_sdk
 from sentry_sdk import capture_exception, set_tag, start_transaction
 
+# Print all input parameters at the start
+print("==== CONFIGURED OPTIONS ====")
+inputs = {
+    "android": os.environ.get("INPUT_ANDROID", "true").lower(),
+    "dotnet": os.environ.get("INPUT_DOTNET", "true").lower(),
+    "haskell": os.environ.get("INPUT_HASKELL", "true").lower(),
+    "large-packages": os.environ.get("INPUT_LARGE_PACKAGES", "true").lower(),
+    "docker-images": os.environ.get("INPUT_DOCKER_IMAGES", "true").lower(),
+    "tool-cache": os.environ.get("INPUT_TOOL_CACHE", "false").lower(),
+    "swap-storage": os.environ.get("INPUT_SWAP_STORAGE", "true").lower(),
+}
+
+for key, value in inputs.items():
+    print(f"  {key}: {value}")
+print("===========================")
+print()
+
 # Initialize Sentry SDK
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 if SENTRY_DSN:
