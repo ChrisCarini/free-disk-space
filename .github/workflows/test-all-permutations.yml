@@ -1,5 +1,7 @@
 name: Test All Permutations
 on:
+  schedule:
+    - cron: '0 * * * *'
   push:
     branches:
       - main
