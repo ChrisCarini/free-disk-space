@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import os
 import subprocess
-import re
-import sys
+from contextlib import contextmanager
+from typing import Generator
+
 import sentry_sdk
-from sentry_sdk import capture_exception, set_tag, start_transaction
+from sentry_sdk import capture_exception, set_tag
+from sentry_sdk.tracing import Span
 
 # Force immediate flushing of all print statements
 print = lambda *args, **kwargs: __builtins__.print(*args, **kwargs, flush=True)
@@ -52,6 +54,8 @@ if SENTRY_DSN:
     set_tag("github.repository", os.environ.get("GITHUB_REPOSITORY", "unknown"))
     set_tag("github.workflow", os.environ.get("GITHUB_WORKFLOW", "unknown"))
     set_tag("github.run_id", os.environ.get("GITHUB_RUN_ID", "unknown"))
+    set_tag("github.job_id", os.environ.get("GITHUB_JOB", "unknown"))
+
 
 # ======
 # UTILITY FUNCTIONS
@@ -61,81 +65,85 @@ def print_separation_line(char="=", num=80):
     """Print a line of characters for visual separation"""
     print(char * num)
 
-def get_available_space(path=None):
+
+def get_available_space(path: str = None) -> int:
     """Get available space in KB"""
-    with sentry_sdk.start_span(description=f"Get available space: {path if path else 'all'}", op="disk.space") as span:
-        cmd = ["df", "-a"]
-        if path:
-            cmd.append(path)
-            span.set_data("path", path)
+    cmd = ["df", "-a"]
+    if path:
+        cmd.append(path)
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        lines = result.stdout.strip().split('\n')[1:]  # Skip header
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    lines = result.stdout.strip().split('\n')[1:]  # Skip header
 
-        total_avail = 0
-        for line in lines:
-            parts = line.split()
-            if len(parts) >= 4:
-                try:
-                    total_avail += int(parts[3])
-                except ValueError:
-                    pass
+    total_avail = 0
+    for line in lines:
+        parts = line.split()
+        if len(parts) >= 4:
+            try:
+                total_avail += int(parts[3])
+            except ValueError:
+                pass
 
-        span.set_data("available_kb", total_avail)
-        return total_avail
+    return total_avail
 
-def format_byte_count(kb):
+
+def format_byte_count(kb: int):
     """Format KB to human-readable format"""
-    with sentry_sdk.start_span(description="Format byte count", op="utility.format") as span:
-        span.set_data("kb_input", kb)
-        cmd = ["numfmt", "--to=iec-i", "--suffix=B", "--padding=7", f"{kb}000"]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        formatted = result.stdout.strip()
-        span.set_data("formatted_output", formatted)
-        return formatted
+    cmd = ["numfmt", "--to=iec-i", "--suffix=B", "--padding=7", f"{kb}000"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    formatted = result.stdout.strip()
+    return formatted
 
-def print_saved_space(saved, title=None):
+
+def print_saved_space(saved: int, title: str = None):
     """Print how much space was saved"""
-    with sentry_sdk.start_span(description="Print saved space", op="utility.report") as span:
-        if title:
-            span.set_data("title", title)
-        span.set_data("saved_kb", saved)
+    print()
+    print_separation_line("*", 80)
+    if title:
+        print(f"=> {title}: Saved {format_byte_count(saved)}")
+    else:
+        print(f"=> Saved {format_byte_count(saved)}")
+    print_separation_line("*", 80)
+    print()
 
-        print()
-        print_separation_line("*", 80)
-        if title:
-            print(f"=> {title}: Saved {format_byte_count(saved)}")
-        else:
-            print(f"=> Saved {format_byte_count(saved)}")
-        print_separation_line("*", 80)
-        print()
 
-def print_dh(caption=None):
+def print_dh(caption: str = None) -> None:
     """Print disk usage with caption"""
-    with sentry_sdk.start_span(description="Print disk usage", op="disk.report") as span:
-        if caption:
-            span.set_data("caption", caption)
-
-        print_separation_line("=", 80)
-        if caption:
-            print(caption)
-            print()
-
-        print("$ df -h /")
+    print_separation_line("=", 80)
+    if caption:
+        print(caption)
         print()
-        subprocess.run(["df", "-h", "/"], check=False)
 
-        print("$ df -a /")
-        print()
-        subprocess.run(["df", "-a", "/"], check=False)
+    print("$ df -h /")
+    print()
+    subprocess.run(["df", "-h", "/"], check=False)
 
-        print("$ df -a")
-        print()
-        subprocess.run(["df", "-a"], check=False)
+    print("$ df -a /")
+    print()
+    subprocess.run(["df", "-a", "/"], check=False)
 
-        print_separation_line("=", 80)
+    print("$ df -a")
+    print()
+    subprocess.run(["df", "-a"], check=False)
 
-def run_command(cmd, error_msg=None):
+    print_separation_line("=", 80)
+
+
+@contextmanager
+def recording(remove: str, op: str) -> Generator[sentry_sdk.tracing.Span, None, None]:
+    with sentry_sdk.start_span(description=f'Remove {remove}', op=op) as span:
+        before = get_available_space()
+
+        yield span
+
+        after = get_available_space()
+        saved = after - before
+        span.set_data("saved_kb", saved)
+        span.set_data("saved_formatted", format_byte_count(saved))
+        print_saved_space(saved, title=remove)
+
+
+def run_command(cmd: list[str], error_msg: str = None):
     """Run a shell command and handle errors gracefully"""
     full_command = ' '.join(cmd)
     try:
@@ -171,43 +179,23 @@ def main():
 
         # Option: Remove Android library
         if ANDROID:
-            with sentry_sdk.start_span(description="Remove Android library", op="cleanup.android") as span:
-                before = get_available_space()
+            with recording(remove="Android library", op="cleanup.android"):
                 run_command(["sudo", "rm", "-rf", "/usr/local/lib/android"])
-                after = get_available_space()
-                saved = after - before
-                span.set_data("saved_kb", saved)
-                span.set_data("saved_formatted", format_byte_count(saved))
-                print_saved_space(saved, "Android library")
 
         # Option: Remove .NET runtime
         if DOTNET:
-            with sentry_sdk.start_span(description="Remove .NET runtime", op="cleanup.dotnet") as span:
-                before = get_available_space()
+            with recording(remove=".NET runtime", op="cleanup.dotnet"):
                 run_command(["sudo", "rm", "-rf", "/usr/share/dotnet"])
-                after = get_available_space()
-                saved = after - before
-                span.set_data("saved_kb", saved)
-                span.set_data("saved_formatted", format_byte_count(saved))
-                print_saved_space(saved, ".NET runtime")
 
         # Option: Remove Haskell runtime
         if HASKELL:
-            with sentry_sdk.start_span(description="Remove Haskell runtime", op="cleanup.haskell") as span:
-                before = get_available_space()
+            with recording(remove="Haskell runtime", op="cleanup.haskell"):
                 run_command(["sudo", "rm", "-rf", "/opt/ghc"])
                 run_command(["sudo", "rm", "-rf", "/usr/local/.ghcup"])
-                after = get_available_space()
-                saved = after - before
-                span.set_data("saved_kb", saved)
-                span.set_data("saved_formatted", format_byte_count(saved))
-                print_saved_space(saved, "Haskell runtime")
 
         # Option: Remove large packages
         if LARGE_PACKAGES:
-            with sentry_sdk.start_span(description="Remove large packages", op="cleanup.packages") as span:
-                before = get_available_space()
-
+            with recording(remove="Large packages", op="cleanup.packages"):
                 # Execute all the apt-get commands
                 apt_commands = [
                     ["sudo", "apt-get", "remove", "-y", "^aspnetcore-.*"],
@@ -216,7 +204,8 @@ def main():
                     ["sudo", "apt-get", "remove", "-y", "php.*", "--fix-missing"],
                     ["sudo", "apt-get", "remove", "-y", "^mongodb-.*", "--fix-missing"],
                     ["sudo", "apt-get", "remove", "-y", "^mysql-.*", "--fix-missing"],
-                    ["sudo", "apt-get", "remove", "-y", "azure-cli", "google-chrome-stable", "firefox", "powershell", "mono-devel", "libgl1-mesa-dri", "--fix-missing"],
+                    ["sudo", "apt-get", "remove", "-y", "azure-cli", "google-chrome-stable", "firefox", "powershell",
+                     "mono-devel", "libgl1-mesa-dri", "--fix-missing"],
                     ["sudo", "apt-get", "remove", "-y", "google-cloud-sdk", "--fix-missing"],
                     ["sudo", "apt-get", "remove", "-y", "google-cloud-cli", "--fix-missing"],
                     ["sudo", "apt-get", "autoremove", "-y"],
@@ -225,62 +214,32 @@ def main():
 
                 for i, cmd in enumerate(apt_commands):
                     full_command = ' '.join(cmd)
-                    with sentry_sdk.start_span(description=f"Large Package: {full_command.removeprefix('sudo apt-get ')}", op="cleanup.packages.cmd") as cmd_span:
-                        cmd_before = get_available_space()
-
+                    with recording(remove=f"Large Package: {full_command.removeprefix('sudo apt-get ')}",
+                                   op="cleanup.packages.cmd") as cmd_span:
                         cmd_span.set_data("command", full_command)
                         error_msg = f"The command [{full_command}] failed to complete successfully. Proceeding..."
                         success = run_command(cmd, error_msg)
                         cmd_span.set_data("success", success)
 
-                        cmd_after = get_available_space()
-                        cmd_saved = cmd_after - cmd_before
-                        cmd_span.set_data("saved_kb", cmd_saved)
-                        cmd_span.set_data("saved_formatted", format_byte_count(cmd_saved))
-
-                after = get_available_space()
-                saved = after - before
-                span.set_data("saved_kb", saved)
-                span.set_data("saved_formatted", format_byte_count(saved))
-                print_saved_space(saved, "Large misc. packages")
-
         # Option: Remove Docker images
         if DOCKER_IMAGES:
-            with sentry_sdk.start_span(description="Remove Docker images", op="cleanup.docker") as span:
-                before = get_available_space()
+            with recording(remove="Docker images", op="cleanup.docker"):
                 run_command(["sudo", "docker", "image", "prune", "--all", "--force"])
-                after = get_available_space()
-                saved = after - before
-                span.set_data("saved_kb", saved)
-                span.set_data("saved_formatted", format_byte_count(saved))
-                print_saved_space(saved, "Docker images")
 
         # Option: Remove tool cache
         if TOOL_CACHE:
-            with sentry_sdk.start_span(description="Remove tool cache", op="cleanup.toolcache") as span:
-                before = get_available_space()
+            with recording(remove="Tool cache", op="cleanup.toolcache") as span:
                 agent_tools_dir = os.environ.get("AGENT_TOOLSDIRECTORY", "")
                 if agent_tools_dir:
                     span.set_data("agent_tools_dir", agent_tools_dir)
                     run_command(["sudo", "rm", "-rf", agent_tools_dir])
-                after = get_available_space()
-                saved = after - before
-                span.set_data("saved_kb", saved)
-                span.set_data("saved_formatted", format_byte_count(saved))
-                print_saved_space(saved, "Tool cache")
 
         # Option: Remove Swap storage
         if SWAP_STORAGE:
-            with sentry_sdk.start_span(description="Remove swap storage", op="cleanup.swap") as span:
-                before = get_available_space()
+            with recording(remove="Swap storage", op="cleanup.swap"):
                 run_command(["sudo", "swapoff", "-a"])
                 run_command(["sudo", "rm", "-f", "/mnt/swapfile"])
                 run_command(["free", "-h"])
-                after = get_available_space()
-                saved = after - before
-                span.set_data("saved_kb", saved)
-                span.set_data("saved_formatted", format_byte_count(saved))
-                print_saved_space(saved, "Swap storage")
 
         # Output saved space statistic
         with sentry_sdk.start_span(description="Calculate final statistics", op="cleanup.stats") as span:
@@ -311,6 +270,7 @@ def main():
         transaction.set_tag("cleanup.success", "true")
         transaction.set_data("total_kb_freed", total_saved)
         transaction.set_data("total_freed_formatted", format_byte_count(total_saved))
+
 
 if __name__ == "__main__":
     try:
