@@ -40,7 +40,7 @@ jobs:
           large-packages: true
           swap-storage: true
           tool-cache: true
-  
+
   dotnet-false:
     name: "android: true; dotnet: false; haskell: true; large-packages: true; swap-storage: true; tool-cache: true"
     runs-on: ubuntu-latest
@@ -54,7 +54,7 @@ jobs:
           large-packages: true
           swap-storage: true
           tool-cache: true
-  
+
   haskell-false:
     name: "android: true; dotnet: true; haskell: false; large-packages: true; swap-storage: true; tool-cache: true"
     runs-on: ubuntu-latest
@@ -68,7 +68,7 @@ jobs:
           large-packages: true
           swap-storage: true
           tool-cache: true
-  
+
   large-packages-false:
     name: "android: true; dotnet: true; haskell: true; large-packages: false; swap-storage: true; tool-cache: true"
     runs-on: ubuntu-latest
@@ -82,7 +82,7 @@ jobs:
           large-packages: false
           swap-storage: true
           tool-cache: true
-  
+
   swap-storage-false:
     name: "android: true; dotnet: true; haskell: true; large-packages: true; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -96,7 +96,7 @@ jobs:
           large-packages: true
           swap-storage: false
           tool-cache: true
-  
+
   # Jobs with two options set to false
   android-dotnet-false:
     name: "android: false; dotnet: false; haskell: true; large-packages: true; swap-storage: true; tool-cache: true"
@@ -111,7 +111,7 @@ jobs:
           large-packages: true
           swap-storage: true
           tool-cache: true
-  
+
   android-haskell-false:
     name: "android: false; dotnet: true; haskell: false; large-packages: true; swap-storage: true; tool-cache: true"
     runs-on: ubuntu-latest
@@ -125,7 +125,7 @@ jobs:
           large-packages: true
           swap-storage: true
           tool-cache: true
-  
+
   android-large-packages-false:
     name: "android: false; dotnet: true; haskell: true; large-packages: false; swap-storage: true; tool-cache: true"
     runs-on: ubuntu-latest
@@ -139,7 +139,7 @@ jobs:
           large-packages: false
           swap-storage: true
           tool-cache: true
-  
+
   android-swap-storage-false:
     name: "android: false; dotnet: true; haskell: true; large-packages: true; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -153,7 +153,7 @@ jobs:
           large-packages: true
           swap-storage: false
           tool-cache: true
-  
+
   dotnet-haskell-false:
     name: "android: true; dotnet: false; haskell: false; large-packages: true; swap-storage: true; tool-cache: true"
     runs-on: ubuntu-latest
@@ -167,7 +167,7 @@ jobs:
           large-packages: true
           swap-storage: true
           tool-cache: true
-  
+
   dotnet-large-packages-false:
     name: "android: true; dotnet: false; haskell: true; large-packages: false; swap-storage: true; tool-cache: true"
     runs-on: ubuntu-latest
@@ -181,7 +181,7 @@ jobs:
           large-packages: false
           swap-storage: true
           tool-cache: true
-  
+
   dotnet-swap-storage-false:
     name: "android: true; dotnet: false; haskell: true; large-packages: true; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -195,7 +195,7 @@ jobs:
           large-packages: true
           swap-storage: false
           tool-cache: true
-  
+
   haskell-large-packages-false:
     name: "android: true; dotnet: true; haskell: false; large-packages: false; swap-storage: true; tool-cache: true"
     runs-on: ubuntu-latest
@@ -209,7 +209,7 @@ jobs:
           large-packages: false
           swap-storage: true
           tool-cache: true
-  
+
   haskell-swap-storage-false:
     name: "android: true; dotnet: true; haskell: false; large-packages: true; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -223,7 +223,7 @@ jobs:
           large-packages: true
           swap-storage: false
           tool-cache: true
-  
+
   large-packages-swap-storage-false:
     name: "android: true; dotnet: true; haskell: true; large-packages: false; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -237,7 +237,7 @@ jobs:
           large-packages: false
           swap-storage: false
           tool-cache: true
-  
+
   # Jobs with three options set to false
   android-dotnet-haskell-false:
     name: "android: false; dotnet: false; haskell: false; large-packages: true; swap-storage: true; tool-cache: true"
@@ -252,7 +252,7 @@ jobs:
           large-packages: true
           swap-storage: true
           tool-cache: true
-  
+
   android-dotnet-large-packages-false:
     name: "android: false; dotnet: false; haskell: true; large-packages: false; swap-storage: true; tool-cache: true"
     runs-on: ubuntu-latest
@@ -266,7 +266,7 @@ jobs:
           large-packages: false
           swap-storage: true
           tool-cache: true
-  
+
   android-dotnet-swap-storage-false:
     name: "android: false; dotnet: false; haskell: true; large-packages: true; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -280,7 +280,7 @@ jobs:
           large-packages: true
           swap-storage: false
           tool-cache: true
-  
+
   android-haskell-large-packages-false:
     name: "android: false; dotnet: true; haskell: false; large-packages: false; swap-storage: true; tool-cache: true"
     runs-on: ubuntu-latest
@@ -294,7 +294,7 @@ jobs:
           large-packages: false
           swap-storage: true
           tool-cache: true
-  
+
   android-haskell-swap-storage-false:
     name: "android: false; dotnet: true; haskell: false; large-packages: true; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -308,7 +308,7 @@ jobs:
           large-packages: true
           swap-storage: false
           tool-cache: true
-  
+
   android-large-packages-swap-storage-false:
     name: "android: false; dotnet: true; haskell: true; large-packages: false; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -322,7 +322,7 @@ jobs:
           large-packages: false
           swap-storage: false
           tool-cache: true
-  
+
   dotnet-haskell-large-packages-false:
     name: "android: true; dotnet: false; haskell: false; large-packages: false; swap-storage: true; tool-cache: true"
     runs-on: ubuntu-latest
@@ -336,7 +336,7 @@ jobs:
           large-packages: false
           swap-storage: true
           tool-cache: true
-  
+
   dotnet-haskell-swap-storage-false:
     name: "android: true; dotnet: false; haskell: false; large-packages: true; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -350,7 +350,7 @@ jobs:
           large-packages: true
           swap-storage: false
           tool-cache: true
-  
+
   dotnet-large-packages-swap-storage-false:
     name: "android: true; dotnet: false; haskell: true; large-packages: false; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -364,7 +364,7 @@ jobs:
           large-packages: false
           swap-storage: false
           tool-cache: true
-  
+
   haskell-large-packages-swap-storage-false:
     name: "android: true; dotnet: true; haskell: false; large-packages: false; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -378,7 +378,7 @@ jobs:
           large-packages: false
           swap-storage: false
           tool-cache: true
-  
+
   # Jobs with four options set to false
   android-dotnet-haskell-large-packages-false:
     name: "android: false; dotnet: false; haskell: false; large-packages: false; swap-storage: true; tool-cache: true"
@@ -393,7 +393,7 @@ jobs:
           large-packages: false
           swap-storage: true
           tool-cache: true
-  
+
   android-dotnet-haskell-swap-storage-false:
     name: "android: false; dotnet: false; haskell: false; large-packages: true; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -407,7 +407,7 @@ jobs:
           large-packages: true
           swap-storage: false
           tool-cache: true
-  
+
   android-dotnet-large-packages-swap-storage-false:
     name: "android: false; dotnet: false; haskell: true; large-packages: false; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -421,7 +421,7 @@ jobs:
           large-packages: false
           swap-storage: false
           tool-cache: true
-  
+
   android-haskell-large-packages-swap-storage-false:
     name: "android: false; dotnet: true; haskell: false; large-packages: false; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -435,7 +435,7 @@ jobs:
           large-packages: false
           swap-storage: false
           tool-cache: true
-  
+
   dotnet-haskell-large-packages-swap-storage-false:
     name: "android: true; dotnet: false; haskell: false; large-packages: false; swap-storage: false; tool-cache: true"
     runs-on: ubuntu-latest
@@ -449,7 +449,7 @@ jobs:
           large-packages: false
           swap-storage: false
           tool-cache: true
-  
+
   # Job with all options set to false
   all-options-false:
     name: All Options False
