@@ -44,8 +44,6 @@ def print_inputs():
     print()
 
 
-print_inputs()
-
 # Initialize Sentry SDK
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 if SENTRY_DSN:
