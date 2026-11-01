@@ -126,6 +126,8 @@ def test_input_defaults_preserve_swap_and_preinstalled_runtimes(cleanup):
 
 
 def test_import_does_not_print_or_run_cleanup(cleanup, commands, capsys):
+    importlib.reload(cleanup)
+
     assert commands.cleanup_commands == []
     assert capsys.readouterr().out == ""
 
