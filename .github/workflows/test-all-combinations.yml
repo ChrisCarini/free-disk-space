@@ -15,6 +15,11 @@ env:
 
 jobs:
   free-disk-space:
+    name: >-
+      android: ${{ matrix.android }}; dotnet: ${{ matrix.dotnet }}; haskell: ${{ matrix.haskell }};
+      large-packages: ${{ matrix.large-packages }}; docker-images: ${{ matrix.docker-images }};
+      preinstalled-runtimes: ${{ matrix.preinstalled-runtimes }}; swap-storage: ${{ matrix.swap-storage }};
+      tool-cache: false
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

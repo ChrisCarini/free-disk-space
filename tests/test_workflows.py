@@ -65,6 +65,15 @@ def test_hourly_matrix_covers_every_distinct_cleanup_configuration():
         **{name: "${{ matrix." + name + " }}" for name in names},
         "tool-cache": "false",
     }
+    for combination in combinations:
+        values = dict(zip(matrix, combination))
+        rendered_name = job["name"]
+        for name, value in values.items():
+            rendered_name = rendered_name.replace("${{ matrix." + name + " }}", value)
+        configured_inputs = {**values, "tool-cache": "false"}
+        assert rendered_name == "; ".join(
+            f"{name}: {configured_inputs[name]}" for name in step["with"]
+        )
 
 
 def test_workflows_run_checked_out_action_and_only_supported_inputs():
