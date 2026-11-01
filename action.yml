@@ -23,7 +23,7 @@ inputs:
   # option inspired by:
   # https://github.com/apache/flink/blob/master/tools/azure-pipelines/free_disk_space.sh
   large-packages:
-    description: "Remove large packages"
+    description: "Remove large misc. packages — includes azure-cli, Chrome, Firefox, PowerShell, mono, and the llvm-, php-, mongodb-, mysql-, dotnet- and aspnetcore- package families. Respects subject toggles: `dotnet: false` exempts .NET from this sweep."
     required: false
     default: "true"
 
@@ -34,29 +34,36 @@ inputs:
 
   # option inspired by:
   # https://github.com/actions/virtual-environments/issues/2875#issuecomment-1163392159
+  preinstalled-runtimes:
+    description: "Remove pre-installed runtimes (Node, Go, Python, Ruby). ⚠️ Workflows using actions/setup-node, setup-python, setup-go or setup-ruby will re-download their runtime, and a pinned version may not be available."
+    required: false
+    default: "false"
+
+  # DEPRECATED alias, kept so no existing workflow breaks at v2.0.0.
   tool-cache:
-    description: "Remove image tool cache"
+    description: "DEPRECATED — renamed to `preinstalled-runtimes`. Still honoured, and will keep working until v3.0.0; it prints a warning when used."
     required: false
     default: "false"
 
   swap-storage:
-    description: "Remove swap storage"
+    description: "Remove swap storage. ⚠️ Jobs that need swap may be killed under memory pressure, with no error mentioning this action — see jlumbroso/free-disk-space#12. Off by default for that reason."
     required: false
-    default: "true"
+    default: "false"
 
 runs:
   using: "composite"
   steps:
     - shell: bash
-      run: pip install sentry-sdk
-
-    - shell: bash
-      run: python3 ${{ github.action_path }}/free_disk_space.py
+      run: |
+        python3 -m pip install -r "$ACTION_PATH/requirements.txt"
+        python3 "$ACTION_PATH/free_disk_space.py"
       env:
+        ACTION_PATH: ${{ github.action_path }}
         INPUT_ANDROID: ${{ inputs.android }}
         INPUT_DOTNET: ${{ inputs.dotnet }}
         INPUT_HASKELL: ${{ inputs.haskell }}
         INPUT_LARGE_PACKAGES: ${{ inputs.large-packages }}
         INPUT_DOCKER_IMAGES: ${{ inputs.docker-images }}
+        INPUT_PREINSTALLED_RUNTIMES: ${{ inputs.preinstalled-runtimes }}
         INPUT_TOOL_CACHE: ${{ inputs.tool-cache }}
         INPUT_SWAP_STORAGE: ${{ inputs.swap-storage }}

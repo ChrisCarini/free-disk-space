@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+import builtins
 import os
 import subprocess
 from contextlib import contextmanager
+from functools import partial
 from typing import Generator
 
 import sentry_sdk
@@ -9,31 +11,34 @@ from sentry_sdk import capture_exception, set_tag
 from sentry_sdk.tracing import Span
 
 # Force immediate flushing of all print statements
-print = lambda *args, **kwargs: __builtins__.print(*args, **kwargs, flush=True)
+print = partial(builtins.print, flush=True)
 
 ANDROID = os.environ.get("INPUT_ANDROID", "true").lower() == "true"
 DOCKER_IMAGES = os.environ.get("INPUT_DOCKER_IMAGES", "true").lower() == "true"
 DOTNET = os.environ.get("INPUT_DOTNET", "true").lower() == "true"
 HASKELL = os.environ.get("INPUT_HASKELL", "true").lower() == "true"
 LARGE_PACKAGES = os.environ.get("INPUT_LARGE_PACKAGES", "true").lower() == "true"
-SWAP_STORAGE = os.environ.get("INPUT_SWAP_STORAGE", "true").lower() == "true"
+PREINSTALLED_RUNTIMES = os.environ.get("INPUT_PREINSTALLED_RUNTIMES", "false").lower() == "true"
+SWAP_STORAGE = os.environ.get("INPUT_SWAP_STORAGE", "false").lower() == "true"
 TOOL_CACHE = os.environ.get("INPUT_TOOL_CACHE", "false").lower() == "true"
 
 
-def print_inputs():
-    # Print all input parameters at the start
-    print("==== CONFIGURED OPTIONS ====")
-    inputs = {
+def get_inputs() -> dict[str, bool]:
+    return {
         "android": ANDROID,
         "dotnet": DOTNET,
         "haskell": HASKELL,
         "large-packages": LARGE_PACKAGES,
         "docker-images": DOCKER_IMAGES,
+        "preinstalled-runtimes": PREINSTALLED_RUNTIMES,
         "tool-cache": TOOL_CACHE,
         "swap-storage": SWAP_STORAGE,
     }
 
-    for key, value in inputs.items():
+
+def print_inputs():
+    print("==== CONFIGURED OPTIONS ====")
+    for key, value in get_inputs().items():
         print(f"  {key}: {value}")
     print("===========================")
     print()
@@ -130,7 +135,7 @@ def print_dh(caption: str = None) -> None:
 
 
 @contextmanager
-def recording(remove: str, op: str) -> Generator[sentry_sdk.tracing.Span, None, None]:
+def recording(remove: str, op: str) -> Generator[Span, None, None]:
     with sentry_sdk.start_span(description=f'Remove {remove}', op=op) as span:
         before = get_available_space()
 
@@ -167,6 +172,12 @@ def run_command(cmd: list[str], error_msg: str = None):
 def main():
     # Start a transaction to monitor the entire cleanup process
     with sentry_sdk.start_transaction(op="cleanup", name="Disk Space Cleanup") as transaction:
+        for name, value in get_inputs().items():
+            transaction.set_tag(f"input.{name}", str(value).lower())
+        remove_preinstalled_runtimes = PREINSTALLED_RUNTIMES or TOOL_CACHE
+        transaction.set_tag("cleanup.preinstalled_runtimes", str(remove_preinstalled_runtimes).lower())
+        print_inputs()
+
         # Display initial disk space stats
         with sentry_sdk.start_span(description="Initial space measurement", op="cleanup.init") as span:
             available_initial = get_available_space()
@@ -195,11 +206,19 @@ def main():
 
         # Option: Remove large packages
         if LARGE_PACKAGES:
-            with recording(remove="Large packages", op="cleanup.packages"):
-                # Execute all the apt-get commands
-                apt_commands = [
-                    ["sudo", "apt-get", "remove", "-y", "^aspnetcore-.*"],
-                    ["sudo", "apt-get", "remove", "-y", "^dotnet-.*", "--fix-missing"],
+            with recording(remove="Large packages", op="cleanup.packages") as span:
+                span.set_data("dotnet_exempted", not DOTNET)
+                apt_commands = []
+                if DOTNET:
+                    apt_commands.extend([
+                        ["sudo", "apt-get", "remove", "-y", "^aspnetcore-.*"],
+                        ["sudo", "apt-get", "remove", "-y", "^dotnet-.*", "--fix-missing"],
+                    ])
+                else:
+                    print("::notice::dotnet: false - .NET packages exempted from large-packages "
+                          "(dotnet-*, aspnetcore-*).")
+
+                apt_commands.extend([
                     ["sudo", "apt-get", "remove", "-y", "^llvm-.*", "--fix-missing"],
                     ["sudo", "apt-get", "remove", "-y", "php.*", "--fix-missing"],
                     ["sudo", "apt-get", "remove", "-y", "^mongodb-.*", "--fix-missing"],
@@ -210,7 +229,7 @@ def main():
                     ["sudo", "apt-get", "remove", "-y", "google-cloud-cli", "--fix-missing"],
                     ["sudo", "apt-get", "autoremove", "-y"],
                     ["sudo", "apt-get", "clean"]
-                ]
+                ])
 
                 for i, cmd in enumerate(apt_commands):
                     full_command = ' '.join(cmd)
@@ -226,13 +245,23 @@ def main():
             with recording(remove="Docker images", op="cleanup.docker"):
                 run_command(["sudo", "docker", "image", "prune", "--all", "--force"])
 
-        # Option: Remove tool cache
         if TOOL_CACHE:
-            with recording(remove="Tool cache", op="cleanup.toolcache") as span:
+            print("::warning::The 'tool-cache' input is deprecated; it was renamed to "
+                  "'preinstalled-runtimes'. It still works and will keep working until v3.0.0 - "
+                  "please rename it when convenient.")
+
+        # Keep the span operation stable for existing Sentry dashboards.
+        if remove_preinstalled_runtimes:
+            with recording(remove="Pre-installed runtimes", op="cleanup.toolcache") as span:
+                span.set_data("deprecated_alias_used", TOOL_CACHE)
                 agent_tools_dir = os.environ.get("AGENT_TOOLSDIRECTORY", "")
+                span.set_data("agent_tools_dir", agent_tools_dir)
                 if agent_tools_dir:
-                    span.set_data("agent_tools_dir", agent_tools_dir)
                     run_command(["sudo", "rm", "-rf", agent_tools_dir])
+                else:
+                    span.set_data("skipped", True)
+                    print("::warning::AGENT_TOOLSDIRECTORY is not set; "
+                          "skipping pre-installed runtimes cleanup.")
 
         # Option: Remove Swap storage
         if SWAP_STORAGE:
