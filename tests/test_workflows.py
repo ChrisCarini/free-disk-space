@@ -92,10 +92,14 @@ def test_workflows_run_checked_out_action_and_only_supported_inputs():
                     )
 
 
-def test_push_and_pull_requests_run_regressions_before_live_cleanup():
+def test_main_pushes_and_pull_requests_run_regressions_before_live_cleanup():
     workflow = load_yaml(".github/workflows/test.yml")
 
-    assert {"push", "pull_request"} <= set(workflow["on"])
+    assert workflow["on"] == {
+        "push": {"branches": ["main"]},
+        "pull_request": "",
+        "workflow_dispatch": "",
+    }
     assert workflow["jobs"]["free-disk-space"]["needs"] == "unit-tests"
     assert any(
         step.get("run") == "python -m pytest -q"

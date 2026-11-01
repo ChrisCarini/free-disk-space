@@ -42,5 +42,9 @@ python3 -m venv .venv
 ```
 
 Tests must stub cleanup commands and keep Sentry events in memory. Never run the cleanup script on your development machine.
+
+CI runs on pull-request updates, pushes to `main`, and manual dispatches. Feature-branch pushes do not trigger CI on
+their own, avoiding duplicate runs for open pull requests.
+
 The workflows exercise the checked-out action on disposable GitHub-hosted Ubuntu runners. Include a workflow run link
 when proposing behavior changes, and report any local or hosted-runner limitations.
