@@ -1,21 +1,41 @@
 name: Free Disk Space (Ubuntu)
-on: push
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  free-disk-space:
+  unit-tests:
     runs-on: ubuntu-latest
     steps:
-      # If there is a problem with this GitHub Actions, this step will fail
-      - name: Free Disk Space
-        uses: ChrisCarini/free-disk-space@main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          tool-cache: true
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Test cleanup, instrumentation, and workflow coverage
+        run: python -m pytest -q
 
-          # all of these default to true, but feel free to set to
-          # false if necessary for your workflow
+  free-disk-space:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Free Disk Space
+        uses: ./
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        with:
           android: true
           dotnet: true
           haskell: true
           large-packages: true
+          docker-images: true
+          preinstalled-runtimes: true
           swap-storage: true
-
